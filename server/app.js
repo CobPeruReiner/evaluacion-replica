@@ -12,6 +12,8 @@ const { viewsRouter } = require("./routes/views.routes");
 const { gestionesCycWebRouter } = require("./routes/gestionesCycWeb.routes");
 const { criteriosEvaluacionRouter } = require("./routes/criterios.routes");
 const { evaluacionesRouter } = require("./routes/evaluaciones.routes");
+const { protectSession } = require("./middlewares/auth.middleware");
+const { enforceAccessSchedule } = require("./middlewares/accessSchedule.middleware");
 
 const app = express();
 
@@ -27,8 +29,6 @@ const rutaAudios = esProduccion
 // app.use("/audios", express.static(path.join(__dirname, "./audios")));
 // app.use("/audios", express.static("/app/server/audios"));
 
-app.use("/audios", express.static(rutaAudios));
-
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use(express.json({ limit: "5mb", extended: true }));
@@ -40,13 +40,17 @@ process.on("uncaughtException", function (err) {
   console.log(err);
 });
 
+// El horario se aplica también al login. Todas las demás APIs requieren JWT.
+app.use("/api/v1", enforceAccessSchedule);
 app.use("/api/v1/users", usersRouter);
+app.use("/api/v1", protectSession);
 app.use("/api/v1/fichas", fichasRouter);
 app.use("/api/v1/base", baseRouter);
 app.use("/api/v1/carteras", carterasRouter);
 app.use("/api/v1/gestionsCycWeb", gestionesCycWebRouter);
 app.use("/api/v1/criteriosEvaluacion", criteriosEvaluacionRouter);
 app.use("/api/v1/evaluaciones", evaluacionesRouter);
+app.use("/audios", enforceAccessSchedule, protectSession, express.static(rutaAudios));
 app.use("/*", viewsRouter);
 
 module.exports = { app };

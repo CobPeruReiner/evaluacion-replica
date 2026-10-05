@@ -1,16 +1,43 @@
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import AudioPlayer from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
 import { CriteriosContext } from "../../../../../Context/Criterios/ItemContext";
 
 export const Audio = ({ item, API_URL, index }) => {
   const audioRef = useRef(null);
-  const audioURL = `${API_URL}audios/${item.archivo}`;
+  const [audioURL, setAudioURL] = useState(null);
+  const endpoint = `${API_URL}audios/${item.archivo}`;
   const { setDuracionAudio } = useContext(CriteriosContext);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let objectURL;
+    const token = localStorage.getItem("token");
+
+    const loadAudio = async () => {
+      const response = await fetch(endpoint, {
+        signal: controller.signal,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error("No fue posible cargar el audio.");
+      objectURL = URL.createObjectURL(await response.blob());
+      setAudioURL(objectURL);
+    };
+
+    setAudioURL(null);
+    loadAudio().catch((error) => {
+      if (error.name !== "AbortError") console.error("Error cargando audio", error);
+    });
+
+    return () => {
+      controller.abort();
+      if (objectURL) URL.revokeObjectURL(objectURL);
+    };
+  }, [endpoint]);
+
+  useEffect(() => {
     const audioElement = audioRef.current?.audio?.current;
-    if (!audioElement) return;
+    if (!audioElement || !audioURL) return;
 
     const handleMetadata = () => {
       const duracionSegundos = audioElement.duration;
@@ -43,7 +70,7 @@ export const Audio = ({ item, API_URL, index }) => {
       </div>
       <AudioPlayer
         ref={audioRef}
-        src={audioURL}
+        src={audioURL || undefined}
         showJumpControls={false}
         customAdditionalControls={[]}
         className="rounded-md shadow-none"

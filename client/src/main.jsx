@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import axios from "axios";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { store } from "./store";
@@ -14,6 +15,16 @@ import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 import "./styles/tailwind-utilities.css";
 import "./index.css";
+
+// Las vistas activas usan axios; adjuntar el JWT evita rutas protegidas sin
+// autorización y no reemplaza un encabezado definido explícitamente.
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token && !config.headers?.Authorization && !config.headers?.authorization) {
+    config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
+  }
+  return config;
+});
 
 addLocale("es", {
   firstDayOfWeek: 1,

@@ -1702,7 +1702,7 @@ export const CriteriosProvider = ({ children }) => {
     }));
   };
 
-  const reproducirAudio = (archivo, index) => {
+  const reproducirAudio = async (archivo, index) => {
     // Si ya está sonando ese mismo audio, pausarlo
     if (audioEnReproduccion === index && isPlaying) {
       audioInstance.pause();
@@ -1714,28 +1714,34 @@ export const CriteriosProvider = ({ children }) => {
     if (audioInstance) {
       audioInstance.pause();
       audioInstance.currentTime = 0;
+      URL.revokeObjectURL(audioInstance.src);
     }
 
-    const nuevaRuta = `${import.meta.env.VITE_API_URL}audios/${archivo}`;
-    const audio = new Audio(nuevaRuta);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}audios/${archivo}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!response.ok) throw new Error("No fue posible obtener el audio.");
 
-    audio
-      .play()
-      .then(() => {
-        setAudioInstance(audio);
-        setAudioEnReproduccion(index);
-        setIsPlaying(true);
+      const objectURL = URL.createObjectURL(await response.blob());
+      const audio = new Audio(objectURL);
+      await audio.play();
+      setAudioInstance(audio);
+      setAudioEnReproduccion(index);
+      setIsPlaying(true);
 
-        audio.onended = () => {
-          setIsPlaying(false);
-          setAudioInstance(null);
-          setAudioEnReproduccion(null);
-        };
-      })
-      .catch((err) => {
-        console.error("Error al reproducir audio:", err);
+      audio.onended = () => {
+        URL.revokeObjectURL(objectURL);
         setIsPlaying(false);
-      });
+        setAudioInstance(null);
+        setAudioEnReproduccion(null);
+      };
+    } catch (err) {
+      console.error("Error al reproducir audio:", err);
+      setIsPlaying(false);
+    }
   };
 
   // Guardar .zip y mostrar archivos dentro de este

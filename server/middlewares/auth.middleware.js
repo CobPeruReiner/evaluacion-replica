@@ -1,14 +1,8 @@
 const jwt = require("jsonwebtoken");
-const dotenv = require("dotenv");
-
-const { User } = require("../models/user.model");
 
 const { catchAsync } = require("../utils/catchAsync.util");
-const { AppError } = require("../utils/appError.util");
 const { db } = require("../utils/database.util");
 const { QueryTypes } = require("sequelize");
-
-dotenv.config({ path: "./config.env" });
 
 const protectSession = catchAsync(async (req, res, next) => {
   let token;
@@ -21,12 +15,15 @@ const protectSession = catchAsync(async (req, res, next) => {
     token = req.headers.authorization.split(" ")[1];
   }
 
-  if (!token) {
-    return next(new AppError("Invalid session", 403));
-  }
+  if (!token)
+    return res.status(401).json({ ok: false, code: "INVALID_SESSION", message: "Sesión no válida." });
 
-  // Ask JWT (library), if the token is still valid
-  const decoded = await jwt.verify(token, process.env.JWT_SECRET);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (_error) {
+    return res.status(401).json({ ok: false, code: "INVALID_SESSION", message: "Sesión expirada o no válida." });
+  }
 
   // { id, ... }
 
@@ -50,9 +47,7 @@ const protectSession = catchAsync(async (req, res, next) => {
   const user = results[0];
 
   if (!user) {
-    return next(
-      new AppError("The owner of this token doesnt exist anymore", 403)
-    );
+    return res.status(401).json({ ok: false, code: "INVALID_SESSION", message: "La sesión ya no pertenece a un usuario activo." });
   }
 
   // Grant access
